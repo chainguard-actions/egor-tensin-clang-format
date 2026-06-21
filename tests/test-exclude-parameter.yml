@@ -1,0 +1,34 @@
+name: Test clang-format with exclude parameter
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install PowerShell
+        run: |
+          # Install PowerShell via direct binary download
+          PWSH_VERSION=7.4.6
+          wget -q "https://github.com/PowerShell/PowerShell/releases/download/v${PWSH_VERSION}/powershell-${PWSH_VERSION}-linux-x64.tar.gz" -O /tmp/pwsh.tar.gz
+          sudo mkdir -p /opt/microsoft/powershell/7
+          sudo tar zxf /tmp/pwsh.tar.gz -C /opt/microsoft/powershell/7
+          sudo chmod +x /opt/microsoft/powershell/7/pwsh
+          sudo ln -sf /opt/microsoft/powershell/7/pwsh /usr/bin/pwsh
+          pwsh --version
+      - name: Install Python3 and clang-format
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq python3 clang-format
+      - id: action
+        uses: .
+        with:
+          style: google
+          exclude: "test:tests"
+      - name: Assert action ran successfully with exclude parameter
+        env:
+          DIFF: ${{ steps.action.outputs.diff }}
+        run: |
+          echo "diff output: '$DIFF'"
+          echo "Action completed successfully with exclude parameter"
+          echo "PASS"

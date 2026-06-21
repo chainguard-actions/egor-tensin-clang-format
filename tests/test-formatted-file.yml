@@ -1,0 +1,46 @@
+name: Test clang-format with already-formatted C file
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install PowerShell
+        run: |
+          # Install PowerShell via direct binary download
+          PWSH_VERSION=7.4.6
+          wget -q "https://github.com/PowerShell/PowerShell/releases/download/v${PWSH_VERSION}/powershell-${PWSH_VERSION}-linux-x64.tar.gz" -O /tmp/pwsh.tar.gz
+          sudo mkdir -p /opt/microsoft/powershell/7
+          sudo tar zxf /tmp/pwsh.tar.gz -C /opt/microsoft/powershell/7
+          sudo chmod +x /opt/microsoft/powershell/7/pwsh
+          sudo ln -sf /opt/microsoft/powershell/7/pwsh /usr/bin/pwsh
+          pwsh --version
+      - name: Install Python3 and clang-format
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq python3 clang-format
+      - name: Verify fixture C file exists
+        run: |
+          if [ ! -f "$GITHUB_WORKSPACE/tests/fixtures/src/hello.c" ]; then
+            echo "FAIL: fixture C file not found"
+            exit 1
+          fi
+          echo "Fixture C file found"
+          cat "$GITHUB_WORKSPACE/tests/fixtures/src/hello.c"
+      - id: action
+        uses: .
+        with:
+          style: file
+          exclude: "test"
+      - name: Assert diff is empty for already-formatted file
+        env:
+          ACTUAL: ${{ steps.action.outputs.diff }}
+        run: |
+          echo "diff output: '$ACTUAL'"
+          if [ -n "$ACTUAL" ]; then
+            echo "FAIL: expected empty diff but got formatting differences:"
+            echo "$ACTUAL"
+            exit 1
+          fi
+          echo "PASS: no formatting differences found"
