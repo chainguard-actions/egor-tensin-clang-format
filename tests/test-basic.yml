@@ -1,0 +1,39 @@
+name: Test basic usage - properly formatted file produces empty diff
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y clang-format python3
+          # Install PowerShell if not already present (required by the action which uses shell: pwsh)
+          if ! command -v pwsh &>/dev/null; then
+            sudo apt-get install -y wget apt-transport-https software-properties-common
+            source /etc/os-release
+            wget -q "https://packages.microsoft.com/config/ubuntu/${VERSION_ID}/packages-microsoft-prod.deb"
+            sudo dpkg -i packages-microsoft-prod.deb
+            sudo apt-get update -qq
+            sudo apt-get install -y powershell
+          fi
+
+      - id: action
+        uses: .
+        with:
+          style: file
+          exclude: test/chromium.cpp:tests
+
+      - name: Assert diff is empty when only properly-formatted file is checked
+        env:
+          DIFF: ${{ steps.action.outputs.diff }}
+        run: |
+          echo "diff output: '$DIFF'"
+          if [ -n "$DIFF" ]; then
+            echo "FAIL: expected empty diff because test/file.cpp is properly formatted"
+            exit 1
+          fi
+          echo "PASS: action completed successfully with empty diff"

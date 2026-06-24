@@ -1,0 +1,44 @@
+name: Test with unformatted C code - expects non-empty diff
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y clang-format python3
+          # Install PowerShell if not already present (required by the action which uses shell: pwsh)
+          if ! command -v pwsh &>/dev/null; then
+            sudo apt-get install -y wget apt-transport-https software-properties-common
+            source /etc/os-release
+            wget -q "https://packages.microsoft.com/config/ubuntu/${VERSION_ID}/packages-microsoft-prod.deb"
+            sudo dpkg -i packages-microsoft-prod.deb
+            sudo apt-get update -qq
+            sudo apt-get install -y powershell
+          fi
+
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          style: file
+          exclude: test
+
+      - name: Assert diff is non-empty (unformatted.c fixture needs formatting)
+        env:
+          DIFF: ${{ steps.action.outputs.diff }}
+        run: |
+          echo "diff output: '$DIFF'"
+          if [ -z "$DIFF" ]; then
+            echo "FAIL: expected non-empty diff because tests/fixtures/unformatted.c is poorly formatted"
+            exit 1
+          fi
+          if ! echo "$DIFF" | grep -q "unformatted"; then
+            echo "FAIL: expected diff to mention unformatted.c"
+            exit 1
+          fi
+          echo "PASS: diff is non-empty as expected"

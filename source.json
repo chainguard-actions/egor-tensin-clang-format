@@ -1,6 +1,11 @@
 {
   "owner": "egor-tensin",
   "repo": "clang-format",
-  "version": "",
-  "url": "https://github.com/egor-tensin/clang-format"
+  "version": "v1.0.3",
+  "commit_sha": "f8d0c1e18918751df0ac43934ccb99129b5f0b31",
+  "url": "https://github.com/egor-tensin/clang-format",
+  "policy_sha": "d636be7e43ef829af6e853da6b3c7566db9f72fe",
+  "test_policy_sha": "843adf9e4b8f85d0c08b27b9d0b09dd094b54702",
+  "test_agent_version": "1",
+  "harden_agent_version": "1"
 }

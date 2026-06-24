@@ -1,14 +1,39 @@
-# egor-tensin/clang-format
+clang-format
+============
 
-clang-format all C/C++ files in the project, and show the diff
+[![Test](https://github.com/egor-tensin/clang-format/actions/workflows/test.yml/badge.svg)](https://github.com/egor-tensin/clang-format/actions/workflows/test.yml)
 
-Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at [https://github.com/egor-tensin/clang-format](https://github.com/egor-tensin/clang-format).
+This GitHub action runs `clang-format` on your C/C++ source files and shows the
+diff.
 
-## Versions
+Use it in your workflow like this:
 
-| Version | Tag | Upstream commit |
-|---------|-----|-----------------|
-| v1.0.2 | [`v1.0.2`](https://github.com/chainguard-actions/egor-tensin-clang-format/tree/v1.0.2) | [`e777a04`](https://github.com/egor-tensin/clang-format/commit/e777a047fe8e36a2c10dc27024bc93b3e8da0c16) |
+    - name: clang-format
+      uses: egor-tensin/clang-format@v1
+
+API
+---
+
+| Input   | Value   | Default | Description
+| ------- | ------- | ------- | -----------
+| version | *empty* | ✓       | Use `clang-format`.
+|         | *any*   |         | Use `clang-format-VERSION`.
+| style   | file    | ✓       | Use .clang-format.
+|         | *any*   |         | `-style=STYLE` (Microsoft, LLVM, etc.).
+| exclude | *empty* | ✓       | Don't exclude any files.
+|         | *any*   |         | List of files and directories to exclude, separated by a colon `:`.
+
+| Output | Description
+| ------ | -----------
+| diff   | Diff between the original and the properly formatted files.
+
+License
+-------
+
+Distributed under the MIT License.
+See [LICENSE.txt] for details.
+
+[LICENSE.txt]: LICENSE.txt
 
 ## Privacy
 

@@ -1,0 +1,40 @@
+name: Test exclude input - excluded directory files do not appear in diff
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y clang-format python3
+          # Install PowerShell if not already present (required by the action which uses shell: pwsh)
+          if ! command -v pwsh &>/dev/null; then
+            sudo apt-get install -y wget apt-transport-https software-properties-common
+            source /etc/os-release
+            wget -q "https://packages.microsoft.com/config/ubuntu/${VERSION_ID}/packages-microsoft-prod.deb"
+            sudo dpkg -i packages-microsoft-prod.deb
+            sudo apt-get update -qq
+            sudo apt-get install -y powershell
+          fi
+
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          style: file
+          exclude: tests/fixtures:test/chromium.cpp
+
+      - name: Assert unformatted.c is not in diff when fixtures dir is excluded
+        env:
+          DIFF: ${{ steps.action.outputs.diff }}
+        run: |
+          echo "diff output: '$DIFF'"
+          if echo "$DIFF" | grep -q "unformatted.c"; then
+            echo "FAIL: unformatted.c appeared in diff even though tests/fixtures was excluded"
+            exit 1
+          fi
+          echo "PASS: unformatted.c correctly excluded from diff"
