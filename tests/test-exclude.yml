@@ -1,0 +1,41 @@
+name: Test exclude input - no diff when misformatted file is excluded
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install clang-format and PowerShell
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq clang-format powershell
+
+      - id: action
+        uses: .
+        with:
+          style: file
+          exclude: test/chromium.cpp
+        continue-on-error: true
+
+      - name: Assert diff is empty (chromium.cpp excluded, file.cpp is already correctly formatted)
+        env:
+          ACTUAL: ${{ steps.action.outputs.diff }}
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "actual diff: $ACTUAL"
+          # The action outputs INFO log lines even when there's no diff.
+          # A real diff contains markers like "--- " and "+++ ".
+          # The output may have newlines encoded as %0A (from PowerShell encoding).
+          # We check that NO such markers are present (meaning no actual diff).
+          if echo "$ACTUAL" | grep -qF '--- '; then
+            echo "FAIL: expected no diff but found '--- ' marker in: $ACTUAL"
+            exit 1
+          fi
+          if echo "$ACTUAL" | grep -qF '%0A--- '; then
+            echo "FAIL: expected no diff but found '%0A--- ' marker in: $ACTUAL"
+            exit 1
+          fi
+          echo "PASS: no diff markers found (chromium.cpp was excluded)"

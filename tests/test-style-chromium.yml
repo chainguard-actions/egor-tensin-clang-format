@@ -1,0 +1,38 @@
+name: Test style input - chromium style produces diff for file.cpp
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install clang-format and PowerShell
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq clang-format powershell
+
+      - id: action
+        uses: .
+        with:
+          style: Chromium
+        continue-on-error: true
+
+      - name: Assert diff is non-empty (file.cpp has 4-space indent, Chromium style requires 2)
+        env:
+          ACTUAL: ${{ steps.action.outputs.diff }}
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "actual diff: $ACTUAL"
+          # The action exits with code 1 when formatting differences are found.
+          # The diff output may have newlines encoded as %0A (from PowerShell encoding).
+          # Check for actual diff markers either as literal text or %0A-encoded.
+          if echo "$ACTUAL" | grep -qF '--- '; then
+            echo "PASS: diff markers found (--- present)"
+          elif echo "$ACTUAL" | grep -qF '%0A--- '; then
+            echo "PASS: diff markers found (%0A-encoded)"
+          else
+            echo "FAIL: expected a diff with '---' markers but got: $ACTUAL"
+            exit 1
+          fi
