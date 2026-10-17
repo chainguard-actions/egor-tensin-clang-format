@@ -1,0 +1,43 @@
+name: Test clang-format exclude
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install PowerShell and clang-format
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y powershell clang-format
+
+      - id: action
+        uses: .
+        with:
+          style: file
+          # Exclude the entire test directory (contains chromium.cpp with 2-space indent)
+          # and cmake (checked out by the action). No C++ files remain, so no diff.
+          exclude: test:cmake
+
+      - name: Assert diff is empty (all C++ files excluded)
+        env:
+          DIFF: ${{ steps.action.outputs.diff }}
+        run: |
+          echo "diff output: '$DIFF'"
+          # The action always emits INFO log lines in the output.
+          # A real diff would contain lines starting with --- or +++ or @@.
+          # Filter out INFO log lines and check if any diff content remains.
+          ACTUAL_DIFF="$(echo "$DIFF" | grep -v '| INFO |' | grep -v '^$' || true)"
+          echo "actual diff content (after filtering logs): '$ACTUAL_DIFF'"
+          if [ -z "$ACTUAL_DIFF" ]; then
+            echo "PASS: no formatting diff (only log lines present, all C++ files excluded)"
+          else
+            # Check if the remaining content looks like a real diff
+            if echo "$ACTUAL_DIFF" | grep -qE '^(---|\+\+\+|@@|[-+])'; then
+              echo "FAIL: expected no diff but got actual diff content: $ACTUAL_DIFF"
+              exit 1
+            else
+              echo "PASS: no diff markers found"
+            fi
+          fi

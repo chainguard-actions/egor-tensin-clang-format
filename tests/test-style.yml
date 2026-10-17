@@ -1,0 +1,39 @@
+name: Test clang-format style input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install PowerShell and clang-format
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y powershell clang-format
+
+      - id: action
+        uses: .
+        with:
+          # Use Google style explicitly. With Google style, both test/chromium.cpp
+          # and test/file.cpp will be reformatted (Google collapses short functions),
+          # so the action will produce a diff and exit 1.
+          style: Google
+          # Only exclude cmake (checked out by the action itself).
+          exclude: cmake
+        continue-on-error: true
+
+      - name: Assert diff is non-empty (Google style applied, changes detected)
+        env:
+          DIFF: ${{ steps.action.outputs.diff }}
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "diff output: '$DIFF'"
+          NORM="$(echo "$DIFF" | tr -d '[:space:]')"
+          if [ -z "$NORM" ] || [ "$NORM" = "{}" ] || [ "$NORM" = "null" ] \
+             || echo "$DIFF" | grep -qiE 'no .*(change|diff)'; then
+            echo "FAIL: expected a diff with Google style but got empty/no-diff: $DIFF"
+            exit 1
+          fi
+          echo "PASS: diff is present, Google style was applied"

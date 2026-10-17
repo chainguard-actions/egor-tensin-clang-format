@@ -1,0 +1,39 @@
+name: Test clang-format has diff
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install PowerShell and clang-format
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y powershell clang-format
+
+      - id: action
+        uses: .
+        with:
+          style: file
+          # test/chromium.cpp uses 2-space indent which doesn't match IndentWidth:4.
+          # test/file.cpp uses 4-space indent (no diff).
+          # We exclude test/file.cpp and cmake, leaving only test/chromium.cpp
+          # which will produce a diff. The action exits 1 when diffs are found.
+          exclude: test/file.cpp:cmake
+        continue-on-error: true
+
+      - name: Assert diff is non-empty (formatting changes detected)
+        env:
+          DIFF: ${{ steps.action.outputs.diff }}
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "diff output: '$DIFF'"
+          NORM="$(echo "$DIFF" | tr -d '[:space:]')"
+          if [ -z "$NORM" ] || [ "$NORM" = "{}" ] || [ "$NORM" = "null" ] \
+             || echo "$DIFF" | grep -qiE 'no .*(change|diff)'; then
+            echo "FAIL: expected a diff but got empty/no-diff: $DIFF"
+            exit 1
+          fi
+          echo "PASS: diff is present as expected"
