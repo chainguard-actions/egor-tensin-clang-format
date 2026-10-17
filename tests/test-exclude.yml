@@ -1,0 +1,39 @@
+name: Test exclude input - no diff when mismatched file is excluded
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install PowerShell
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y powershell
+
+      - name: Install clang-format
+        run: |
+          sudo apt-get install -y clang-format
+
+      - id: action
+        uses: .
+        with:
+          style: file
+          exclude: test/chromium.cpp
+
+      - name: Assert no diff when chromium.cpp is excluded
+        env:
+          ACTUAL: ${{ steps.action.outputs.diff }}
+        run: |
+          echo "actual diff:"
+          echo "$ACTUAL"
+          # The output always contains INFO log lines even when no formatting diff exists.
+          # A real formatting diff is indicated by '---' diff markers.
+          # When chromium.cpp is excluded, only file.cpp is checked and it already
+          # matches the 4-space indent style, so no diff markers should appear.
+          if echo "$ACTUAL" | grep -q '^---'; then
+            echo "FAIL: expected no diff markers but found --- in output: $ACTUAL"
+            exit 1
+          fi
+          echo "PASS: no diff markers found as expected when mismatched file is excluded"

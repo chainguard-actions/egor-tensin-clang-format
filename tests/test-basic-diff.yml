@@ -1,0 +1,48 @@
+name: Test basic usage - produces diff
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install PowerShell
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y powershell
+
+      - name: Install clang-format
+        run: |
+          sudo apt-get install -y clang-format
+
+      - id: action
+        uses: .
+        with:
+          style: file
+        continue-on-error: true
+
+      - name: Assert diff is present (chromium.cpp uses 2-space indent but .clang-format requires 4-space)
+        env:
+          ACTUAL: ${{ steps.action.outputs.diff }}
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "actual diff (raw):"
+          echo "$ACTUAL"
+          # The action exits non-zero when diffs are found; that is expected
+          if [ "$OUTCOME" != "failure" ] && [ "$OUTCOME" != "success" ]; then
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
+          # The action URL-encodes the output: newlines become %0A, so diff markers
+          # appear as %0A--- in the encoded string. Decode %0A then grep for ---.
+          DECODED="$(printf '%s' "$ACTUAL" | sed 's/%0A/\n/g; s/%0D/\r/g; s/%25/%/g')"
+          echo "decoded diff:"
+          echo "$DECODED"
+          if echo "$DECODED" | grep -q '^---'; then
+            echo "PASS: diff markers found as expected"
+          else
+            echo "FAIL: expected diff markers (---/+++) in decoded output but got: $DECODED"
+            exit 1
+          fi

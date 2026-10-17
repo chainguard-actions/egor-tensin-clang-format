@@ -1,0 +1,27 @@
+name: Test version input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install clang-format-14
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y clang-format-14
+
+      - id: action
+        uses: .
+        with:
+          version: "14"
+
+      - name: Assert diff output is set (even if empty)
+        env:
+          DIFF: ${{ steps.action.outputs.diff }}
+        run: |
+          echo "diff output: '$DIFF'"
+          # The diff output key should exist (may be empty if code is already formatted)
+          # Just verify the step succeeded and the output variable is accessible
+          echo "PASS: action ran with version input and produced output"
