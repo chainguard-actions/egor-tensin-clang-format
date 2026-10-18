@@ -1,0 +1,49 @@
+name: Test clang-format with version input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install PowerShell and versioned clang-format
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q powershell clang-format-14 || \
+            sudo apt-get install -y -q powershell clang-format-15 || \
+            sudo apt-get install -y -q powershell clang-format-16 || \
+            sudo apt-get install -y -q powershell clang-format-18
+
+      - name: Determine installed clang-format version
+        id: cfver
+        run: |
+          for v in 14 15 16 18; do
+            if command -v "clang-format-$v" >/dev/null 2>&1; then
+              echo "version=$v" >> "$GITHUB_OUTPUT"
+              echo "Found clang-format-$v"
+              break
+            fi
+          done
+
+      - id: action
+        uses: .
+        with:
+          version: ${{ steps.cfver.outputs.version }}
+          style: file
+          exclude: test/chromium.cpp
+
+      - name: Assert action ran with versioned clang-format (no diff markers expected)
+        env:
+          DIFF: ${{ steps.action.outputs.diff }}
+          VERSION: ${{ steps.cfver.outputs.version }}
+        run: |
+          echo "version used: $VERSION"
+          echo "diff: '$DIFF'"
+          # The action should have run successfully using clang-format-<version>.
+          # We exclude chromium.cpp so no formatting diff is expected.
+          if echo "$DIFF" | grep -qE '^(---|[+][+][+]|@@)'; then
+            echo "FAIL: unexpected formatting diff markers found: $DIFF"
+            exit 1
+          fi
+          echo "PASS: action ran with version=$VERSION and produced no unexpected diff"

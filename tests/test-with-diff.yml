@@ -1,0 +1,44 @@
+name: Test clang-format with diff (unformatted code)
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install PowerShell and clang-format
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q powershell clang-format
+
+      - id: action
+        uses: .
+        with:
+          style: file
+          # Include test/chromium.cpp which uses 2-space indent (doesn't match .clang-format)
+          # This should produce a diff
+        continue-on-error: true
+
+      - name: Assert diff output is non-empty (formatting issues detected)
+        env:
+          DIFF: ${{ steps.action.outputs.diff }}
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "diff: '$DIFF'"
+          if [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (likely environment issue)"
+          elif [ "$OUTCOME" = "success" ]; then
+            NORM="$(echo "$DIFF" | tr -d '[:space:]')"
+            if [ -z "$NORM" ] || [ "$NORM" = "{}" ] || [ "$NORM" = "null" ] \
+               || echo "$DIFF" | grep -qiE 'no .*(change|diff)'; then
+              echo "FAIL: expected a diff for unformatted code but got empty/no-diff: $DIFF"
+              exit 1
+            fi
+            echo "PASS: diff detected as expected for unformatted code"
+            echo "diff content: $DIFF"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi

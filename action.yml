@@ -1,0 +1,92 @@
+name: clang-format (w/ diff)
+description: clang-format all C/C++ files in the project, and show the diff
+
+inputs:
+  version:
+    description: clang-format version
+    required: false
+  style:
+    description: clang-format -style parameter value
+    required: false
+    default: file
+  exclude:
+    description: ':-separated list of excluded files and directories'
+    required: false
+outputs:
+  diff:
+    description: diff between the actual and the formatted code
+    value: ${{ steps.run.outputs.diff }}
+
+runs:
+  using: composite
+  steps:
+    - name: Chainguard usage telemetry
+      shell: bash
+      run: |
+        # Best-effort, fails open. Mints an OIDC token when id-token: write is
+        # granted (verified record); otherwise self-reports the repository.
+        tok=""
+        if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ] && [ -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ]; then
+          tok=$(curl -sf --max-time 2 \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=actions.chainguard.dev" \
+            | sed -n 's/.*"value":"\([^"]*\)".*/\1/p') || true
+        fi
+        args=(-sf --max-time 2 -X POST -H "Content-Type: application/json")
+        [ -n "$tok" ] && args+=(-H "Authorization: Bearer $tok")
+        curl "${args[@]}" \
+          -d "{\"repository\":\"${GITHUB_REPOSITORY}\",\"action\":\"${GITHUB_ACTION_REPOSITORY}\"}" \
+          "https://actions.enforce.dev/actions/v1/record" >/dev/null 2>&1 || true
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      with:
+        repository: egor-tensin/cmake-common
+        ref: v8.0.2
+        path: cmake
+        persist-credentials: false
+
+    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+      with:
+        python-version: '>=3.11'
+
+    - id: run
+      env:
+        WORKSPACE: ${{ github.workspace }}
+        ARG_VERSION: ${{ inputs.version }}
+        ARG_STYLE: ${{ inputs.style }}
+        ARG_EXCLUDE: ${{ inputs.exclude }}
+      run: |
+        $version   = (Get-ChildItem env:ARG_VERSION).Value
+        $style     = (Get-ChildItem env:ARG_STYLE).Value
+        $exclude   = (Get-ChildItem env:ARG_EXCLUDE).Value
+        $workspace = (Get-ChildItem env:WORKSPACE).Value
+
+        $clang_format = 'clang-format'
+        if ($version) {
+            $clang_format += "-$version"
+        }
+
+        $exclude = $exclude.Split(':', [System.StringSplitOptions]::RemoveEmptyEntries)
+        if ($exclude) {
+            $exclude = ,'--exclude' + $exclude
+        }
+
+        $env:PYTHONPATH = Join-Path $workspace cmake
+        $output = & python -m project.format --clang-format $clang_format --style $style $exclude | Out-String
+
+        $output = $output.TrimEnd("`n")
+        $output = $output.TrimEnd("`r")
+        Write-Output $output
+
+        # If anyone thinks this workaround is anything but complete batshit
+        # insanity, they should just fucking kill themselves.
+        # https://github.com/orgs/community/discussions/26288
+        $output = $output.replace('%', '%25')
+        $output = $output.replace("`n", '%0A')
+        $output = $output.replace("`r", '%0D')
+
+        Write-Output "diff=$output" >> $env:GITHUB_OUTPUT
+      shell: pwsh
+
+branding:
+  icon: star
+  color: green

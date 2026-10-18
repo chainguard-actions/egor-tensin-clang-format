@@ -1,0 +1,35 @@
+name: Test clang-format exclude parameter
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install PowerShell and clang-format
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q powershell clang-format
+
+      - id: action
+        uses: .
+        with:
+          style: file
+          # Exclude the entire test directory (contains both formatted and unformatted files)
+          # With no C/C++ files remaining, there should be no formatting diff
+          exclude: test
+
+      - name: Assert diff output has no actual formatting changes when all files are excluded
+        env:
+          DIFF: ${{ steps.action.outputs.diff }}
+        run: |
+          echo "diff: '$DIFF'"
+          # The action outputs INFO log lines even when there's no formatting diff.
+          # A real formatting diff contains unified diff markers: ---, +++, @@
+          # We check that none of those markers are present.
+          if echo "$DIFF" | grep -qE '^(---|[+][+][+]|@@)'; then
+            echo "FAIL: expected no formatting diff but got actual diff markers: $DIFF"
+            exit 1
+          fi
+          echo "PASS: no formatting diff markers found (only INFO logs, if any)"
