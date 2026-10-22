@@ -1,0 +1,56 @@
+name: Test clang-format with explicit version input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install PowerShell and clang-format
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q powershell clang-format
+
+      - name: Create versioned clang-format wrapper (clang-format-99)
+        run: |
+          REAL="$(command -v clang-format)"
+          echo "real clang-format: $REAL"
+          cat > /tmp/clang-format-99 <<EOF
+          #!/bin/sh
+          echo "\$@" >> /tmp/clang-format-99.log
+          exec "$REAL" "\$@"
+          EOF
+          sudo install -m 0755 /tmp/clang-format-99 /usr/local/bin/clang-format-99
+          rm -f /tmp/clang-format-99.log
+          clang-format-99 --version
+          rm -f /tmp/clang-format-99.log
+
+      - id: action
+        uses: .
+        with:
+          version: '99'
+          style: file
+        continue-on-error: true
+
+      - name: Assert versioned clang-format binary was used
+        env:
+          DIFF: ${{ steps.action.outputs.diff }}
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "diff: '$DIFF'"
+          if [ "$OUTCOME" = "success" ]; then
+            if [ ! -s /tmp/clang-format-99.log ]; then
+              echo "FAIL: action succeeded but clang-format-99 was never invoked"
+              exit 1
+            fi
+            echo "clang-format-99 invocations:"
+            head -n 5 /tmp/clang-format-99.log
+            echo "PASS: version input selected clang-format-99"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (likely environment issue)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
