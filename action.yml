@@ -44,7 +44,7 @@ runs:
         path: cmake
         persist-credentials: false
 
-    - uses: chainguard-actions/actions-setup-python@9bc81c95771c379a24d235203ec35ccbac904e5a # v7
+    - uses: chainguard-actions/actions-setup-python@aa9fa180ff273b8e01a98ec8583cf6985edd88bd # v7
       with:
         python-version: '>=3.11'
 
@@ -55,7 +55,7 @@ runs:
         ARG_STYLE: ${{ inputs.style }}
         ARG_EXCLUDE: ${{ inputs.exclude }}
       run: |
-        $version = $env:VERSION
+        $version = $env:ARG_VERSION
         $style = $env:ARG_STYLE
 
         $clang_format = 'clang-format'
@@ -69,7 +69,7 @@ runs:
         }
 
         $env:PYTHONPATH = Join-Path $env:WORKSPACE cmake
-        $output = & python -m project.format --clang-format "$clang_format" --style "$style" $exclude_list | Out-String
+        $output = & python -m project.format --clang-format $clang_format --style $style $exclude_list | Out-String
 
         $output = $output.TrimEnd("`n")
         $output = $output.TrimEnd("`r")
