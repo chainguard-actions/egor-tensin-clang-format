@@ -10,51 +10,29 @@
 
 **Harden Agent Version:** `2`
 
-Action **egor-tensin--clang-format/v1.1.0** was hardened automatically. 6 finding(s) were identified and resolved across 1 iteration(s).
+Action **egor-tensin--clang-format/v1.1.0** was hardened automatically. 5 finding(s) were identified and resolved across 1 iteration(s).
 
 ## Findings Fixed
 
-### script-injection (severity: high)
-
-The `run:` block (shell: pwsh) in action.yml directly interpolates GitHub Actions expressions into the PowerShell script string before the shell parses it. This allows an attacker who controls the inputs or the calling workflow to inject arbitrary PowerShell commands.
-
-Offending lines:
-- Line 34: `New-Variable version -Value '${{ inputs.version }}' -Option Constant`
-- Line 35: `New-Variable style -Value '${{ inputs.style }}' -Option Constant`
-- Line 36: `New-Variable exclude -Value '${{ inputs.exclude }}' -Option Constant`
-- Line 45: `$env:PYTHONPATH = Join-Path '${{ github.workspace }}' 'cmake'`
-
-All four violate sub-rule (a): `${{ ... }}` expressions are interpolated directly inside a `run:` shell command string. These values should be passed via `env:` variables and referenced as PowerShell environment variables (e.g., `$env:VERSION`) instead.
-
-Locations:
-
-- `action.yml:34`
-- `action.yml:35`
-- `action.yml:36`
-- `action.yml:45`
-
 ### unpinned-uses (severity: high)
 
-Two `uses:` references in action.yml are pinned to mutable version tags rather than immutable 40-character commit SHAs. This exposes the action to supply-chain attacks if the upstream tag is moved or the repository is compromised.
-
-- `uses: actions/checkout@v7` (line 22) — `v7` is a mutable tag
-- `uses: actions/setup-python@v7` (line 28) — `v7` is a mutable tag
-
-These should be pinned to their full SHA digests, e.g.:
-  `uses: actions/checkout@<40-char-sha> # v7`
+The composite action references actions by tag instead of a full commit SHA: 'uses: actions/checkout@v7' (it also checks out egor-tensin/cmake-common at the mutable ref v8.0.2) and 'uses: actions/setup-python@v7'.
 
 Locations:
 
-- `action.yml:22`
-- `action.yml:28`
+- `action.yml:23`
+- `action.yml:29`
 
-### github-env-injection (severity: high)
+### script-injection (severity: high)
 
-The `run:` block writes `$output` to `$env:GITHUB_OUTPUT` at line 58 (`Write-Output "diff=$output" >> $env:GITHUB_OUTPUT`). The value of `$output` is derived from running a Python tool with arguments sourced from `${{ inputs.version }}`, `${{ inputs.style }}`, and `${{ inputs.exclude }}` — all untrusted inputs. While the script applies manual `%0A`/`%0D` percent-encoding, this is not the required sanitization step (`printf '%s' ... | tr -d '\n\r'`). A crafted input that produces newline characters in the tool output could inject additional key=value pairs into GITHUB_OUTPUT, potentially overwriting subsequent output variables.
+Sub-rule (a): expressions are placed directly inside the pwsh run: block of step 'run'. The lines are: New-Variable version -Value '${{ inputs.version }}'; New-Variable style -Value '${{ inputs.style }}'; New-Variable exclude -Value '${{ inputs.exclude }}'; $env:PYTHONPATH = Join-Path '${{ github.workspace }}' 'cmake'. A single quote in an input value ends the PowerShell string and lets an attacker run arbitrary code. Fix: pass the values through env: (e.g. INPUT_VERSION) and read them as $env:INPUT_VERSION. Use $env:GITHUB_WORKSPACE for the workspace path.
 
 Locations:
 
-- `action.yml:58`
+- `action.yml:35`
+- `action.yml:36`
+- `action.yml:37`
+- `action.yml:49`
 
 ### static-inline-injection (severity: high)
 
@@ -84,13 +62,9 @@ Locations:
 
 ### Iteration 1
 
-**Fixes applied:** unpinned-uses, script-injection, static-inline-injection, github-env-injection
+**Fixes applied:** unpinned-uses, script-injection, static-inline-injection
 
 **Notes:**
 
-Fixed action.yml with the following changes:
-1. Pinned actions/checkout@v7 to full SHA 3d3c42e5aac5ba805825da76410c181273ba90b1
-2. Pinned actions/setup-python@v7 to full SHA 5fda3b95a4ea91299a34e894583c3862153e4b97
-3. Moved all ${{ }} expressions (inputs.version, inputs.style, inputs.exclude, github.workspace) to an env: block on the step, and updated the PowerShell script to reference them as $env:INPUT_VERSION, $env:INPUT_STYLE, $env:INPUT_EXCLUDE, and $env:GITHUB_WORKSPACE_PATH respectively
-4. The github-env-injection finding is addressed: inputs now come from env vars (not inline expressions), and the existing %0A/%0D percent-encoding in PowerShell correctly sanitizes newlines before writing to $env:GITHUB_OUTPUT
+Pinned actions/checkout@v7 to 3d3c42e5aac5ba805825da76410c181273ba90b1 and actions/setup-python@v7 to 6d4fd22b20465ccc0f7354476588e8df7c9ca0e0. Pinned the egor-tensin/cmake-common ref v8.0.2 to 4464dcbe5f2bff10976d4f4d4d022d98672ecd8e. In the pwsh step, the inputs version, style and exclude now go through env (INPUT_*). The script reads them as [string]$env:INPUT_*. The [string] cast turns a missing value into an empty string, so .Split and the empty-version check still work. github.workspace is replaced with $env:GITHUB_WORKSPACE. Not tested.
 
