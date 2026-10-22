@@ -1,4 +1,4 @@
-name: Test version input
+name: Test version input - uses clang-format-<version>
 on:
   workflow_dispatch:
 jobs:
@@ -7,21 +7,49 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Install clang-format-14
+      - name: Install PowerShell
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y clang-format-14
+          sudo apt-get install -y powershell
+
+      - name: Install clang-format and detect versioned binary
+        id: detect
+        run: |
+          sudo apt-get install -y clang-format
+          BIN="$(ls /usr/bin/clang-format-* 2>/dev/null | grep -E 'clang-format-[0-9]+$' | sort -V | tail -n1 || true)"
+          if [ -n "$BIN" ]; then
+            VERSION="${BIN##*clang-format-}"
+          else
+            # Fallback: provide a versioned name pointing to the installed binary
+            VERSION=99
+            sudo ln -sf "$(command -v clang-format)" /usr/local/bin/clang-format-99
+          fi
+          echo "Detected version: $VERSION"
+          command -v "clang-format-$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - id: action
         uses: .
         with:
-          version: "14"
+          version: ${{ steps.detect.outputs.version }}
+        continue-on-error: true
 
-      - name: Assert diff output is set (even if empty)
+      - name: Assert diff is present using versioned clang-format
         env:
-          DIFF: ${{ steps.action.outputs.diff }}
+          ACTUAL: ${{ steps.action.outputs.diff }}
+          OUTCOME: ${{ steps.action.outcome }}
         run: |
-          echo "diff output: '$DIFF'"
-          # The diff output key should exist (may be empty if code is already formatted)
-          # Just verify the step succeeded and the output variable is accessible
-          echo "PASS: action ran with version input and produced output"
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ] && [ "$OUTCOME" != "success" ]; then
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
+          DECODED="$(printf '%s' "$ACTUAL" | sed 's/%0A/\n/g; s/%0D/\r/g; s/%25/%/g')"
+          echo "decoded diff:"
+          echo "$DECODED"
+          if echo "$DECODED" | grep -q '^---'; then
+            echo "PASS: diff produced with versioned clang-format"
+          else
+            echo "FAIL: expected diff markers in output but got: $DECODED"
+            exit 1
+          fi
