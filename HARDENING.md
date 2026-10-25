@@ -10,18 +10,18 @@
 
 **Harden Agent Version:** `2`
 
-Action **egor-tensin--clang-format/v1.1.3** was hardened automatically. 1 finding(s) were identified and resolved across 1 iteration(s).
+Action **egor-tensin--clang-format/v1.1.3** was hardened automatically. 1 finding(s) were identified and resolved across 2 iteration(s).
 
 ## Findings Fixed
 
 ### unpinned-uses (severity: high)
 
-The composite action's steps pull in other actions by mutable version tags instead of full 40-character commit SHAs: `uses: actions/checkout@v7` (line 22) and `uses: actions/setup-python@v7` (line 29). The checkout step also fetches egor-tensin/cmake-common at the mutable tag `ref: v8.0.2`.
+Two composite action steps reference actions by tag instead of a full 40-character commit SHA: `uses: actions/checkout@v7` and `uses: actions/setup-python@v7`.
 
 Locations:
 
-- `action.yml:22`
-- `action.yml:29`
+- `action.yml:23`
+- `action.yml:30`
 
 ## Iteration Notes
 
@@ -31,5 +31,13 @@ Locations:
 
 **Notes:**
 
-Pinned actions/checkout@v7 to 3d3c42e5aac5ba805825da76410c181273ba90b1, actions/setup-python@v7 to 6d4fd22b20465ccc0f7354476588e8df7c9ca0e0, and the cmake-common checkout ref v8.0.2 to commit 4464dcbe5f2bff10976d4f4d4d022d98672ecd8e. Each has a trailing comment with its tag name.
+Pinned actions/checkout@v7 to 3d3c42e5aac5ba805825da76410c181273ba90b1 and actions/setup-python@v7 to 6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 in action.yml, with '# v7' comments.
+
+### Iteration 2
+
+**Fixes applied:** unpinned-uses
+
+**Notes:**
+
+Pinned actions/setup-python@v7 to 6d4fd22b20465ccc0f7354476588e8df7c9ca0e0, with '# v7' kept as a comment. actions/checkout was already pinned.
 

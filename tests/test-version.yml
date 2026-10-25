@@ -1,4 +1,4 @@
-name: Test clang-format with explicit version input
+name: Test clang-format with explicit version
 on:
   workflow_dispatch:
 jobs:
@@ -12,45 +12,39 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y -q powershell clang-format
 
-      - name: Create versioned clang-format wrapper (clang-format-99)
+      - name: Create versioned clang-format-99 wrapper
         run: |
           REAL="$(command -v clang-format)"
           echo "real clang-format: $REAL"
-          cat > /tmp/clang-format-99 <<EOF
+          rm -f /tmp/clang-format-99-called
+          sudo tee /usr/local/bin/clang-format-99 > /dev/null <<EOF
           #!/bin/sh
-          echo "\$@" >> /tmp/clang-format-99.log
+          echo called >> /tmp/clang-format-99-called
           exec "$REAL" "\$@"
           EOF
-          sudo install -m 0755 /tmp/clang-format-99 /usr/local/bin/clang-format-99
-          rm -f /tmp/clang-format-99.log
+          sudo chmod +x /usr/local/bin/clang-format-99
           clang-format-99 --version
-          rm -f /tmp/clang-format-99.log
+          rm -f /tmp/clang-format-99-called
 
       - id: action
         uses: .
         with:
-          version: '99'
+          version: "99"
           style: file
-        continue-on-error: true
+          exclude: test/chromium.cpp
 
       - name: Assert versioned clang-format binary was used
         env:
           DIFF: ${{ steps.action.outputs.diff }}
-          OUTCOME: ${{ steps.action.outcome }}
         run: |
-          echo "outcome: $OUTCOME"
           echo "diff: '$DIFF'"
-          if [ "$OUTCOME" = "success" ]; then
-            if [ ! -s /tmp/clang-format-99.log ]; then
-              echo "FAIL: action succeeded but clang-format-99 was never invoked"
-              exit 1
-            fi
-            echo "clang-format-99 invocations:"
-            head -n 5 /tmp/clang-format-99.log
-            echo "PASS: version input selected clang-format-99"
-          elif [ "$OUTCOME" = "failure" ]; then
-            echo "PASS: action failed gracefully (likely environment issue)"
-          else
-            echo "FAIL: unexpected outcome '$OUTCOME'"
+          if [ ! -s /tmp/clang-format-99-called ]; then
+            echo "FAIL: clang-format-99 was never invoked; version input ignored"
             exit 1
           fi
+          echo "clang-format-99 invocations: $(wc -l < /tmp/clang-format-99-called)"
+          if echo "$DIFF" | grep -qE '^(---|[+][+][+]|@@)'; then
+            echo "FAIL: expected no formatting diff but got: $DIFF"
+            exit 1
+          fi
+          echo "PASS: version input selected clang-format-99"
