@@ -10,13 +10,13 @@
 
 **Harden Agent Version:** `2`
 
-Action **egor-tensin--clang-format/v1.1.2** was hardened automatically. 1 finding(s) were identified and resolved across 2 iteration(s).
+Action **egor-tensin--clang-format/v1.1.2** was hardened automatically. 1 finding(s) were identified and resolved across 1 iteration(s).
 
 ## Findings Fixed
 
 ### unpinned-uses (severity: high)
 
-Two composite action steps reference actions by tag instead of a full 40-character commit SHA: `uses: actions/checkout@v7` (line 23) and `uses: actions/setup-python@v7` (line 30).
+Two composite action steps use mutable tags instead of full 40-character commit SHAs: `uses: actions/checkout@v7` (line 23) and `uses: actions/setup-python@v7` (line 30). The checkout step also pulls egor-tensin/cmake-common at the mutable tag `ref: v8.0.2`.
 
 Locations:
 
@@ -31,13 +31,5 @@ Locations:
 
 **Notes:**
 
-Pinned actions/checkout@v7 -> 3d3c42e5aac5ba805825da76410c181273ba90b1 and actions/setup-python@v7 -> 6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 with tag comments in action.yml.
-
-### Iteration 2
-
-**Fixes applied:** unpinned-uses
-
-**Notes:**
-
-Pinned actions/setup-python@v7 to 6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 (# v7) in action.yml.
+Pinned actions/checkout@v7 -> 3d3c42e5aac5ba805825da76410c181273ba90b1, actions/setup-python@v7 -> 6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 (tag comments kept), and the egor-tensin/cmake-common checkout ref v8.0.2 -> 4464dcbe5f2bff10976d4f4d4d022d98672ecd8e.
 
