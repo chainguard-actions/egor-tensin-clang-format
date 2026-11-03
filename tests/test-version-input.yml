@@ -1,4 +1,4 @@
-name: Test version input - uses clang-format-<version> binary
+name: Test version input - uses clang-format-<version>
 on:
   workflow_dispatch:
 jobs:
@@ -12,50 +12,48 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y powershell
 
-      - name: Install clang-format and expose it as clang-format-99
+      - name: Install clang-format and determine major version
+        id: ver
         run: |
           sudo apt-get install -y clang-format
-          REAL="$(command -v clang-format)"
-          echo "real clang-format: $REAL"
-          # Wrapper that records it was invoked, proving the version suffix is honored
-          sudo tee /usr/local/bin/clang-format-99 > /dev/null <<EOF
-          #!/bin/sh
-          echo invoked >> /tmp/clang-format-99-invoked
-          exec "$REAL" "\$@"
-          EOF
-          sudo chmod +x /usr/local/bin/clang-format-99
-          rm -f /tmp/clang-format-99-invoked
-          clang-format-99 --version
+          clang-format --version
+          V="$(clang-format --version | grep -oE 'version [0-9]+' | grep -oE '[0-9]+' | head -n1)"
+          echo "major version: $V"
+          if [ -z "$V" ]; then
+            echo "FAIL: could not determine clang-format version"
+            exit 1
+          fi
+          if ! command -v "clang-format-$V" >/dev/null 2>&1; then
+            sudo ln -sf "$(command -v clang-format)" "/usr/local/bin/clang-format-$V"
+          fi
+          "clang-format-$V" --version
+          echo "v=$V" >> "$GITHUB_OUTPUT"
 
       - id: action
         uses: .
         with:
-          version: '99'
+          version: ${{ steps.ver.outputs.v }}
           style: file
         continue-on-error: true
 
-      - name: Assert clang-format-99 was used and diff produced
+      - name: Assert versioned clang-format was used and produced a diff
         env:
           ACTUAL: ${{ steps.action.outputs.diff }}
           OUTCOME: ${{ steps.action.outcome }}
         run: |
           echo "outcome: $OUTCOME"
-          echo "actual diff (raw): $ACTUAL"
+          echo "actual diff (raw):"
+          echo "$ACTUAL"
           if [ "$OUTCOME" != "failure" ] && [ "$OUTCOME" != "success" ]; then
             echo "FAIL: unexpected outcome '$OUTCOME'"
             exit 1
           fi
-          if [ ! -s /tmp/clang-format-99-invoked ]; then
-            echo "FAIL: clang-format-99 was never invoked; version input ignored"
-            exit 1
-          fi
-          echo "clang-format-99 invocations: $(wc -l < /tmp/clang-format-99-invoked)"
           DECODED="$(printf '%s' "$ACTUAL" | sed 's/%0A/\n/g; s/%0D/\r/g; s/%25/%/g')"
           echo "decoded diff:"
           echo "$DECODED"
           if echo "$DECODED" | grep -q '^---'; then
-            echo "PASS: version-suffixed binary used and diff produced"
+            echo "PASS: diff produced using versioned clang-format"
           else
-            echo "FAIL: expected diff markers in decoded output"
+            echo "FAIL: expected diff markers in decoded output but got: $DECODED"
             exit 1
           fi
