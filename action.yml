@@ -37,14 +37,14 @@ runs:
         curl "${args[@]}" \
           -d "{\"repository\":\"${GITHUB_REPOSITORY}\",\"action\":\"${GITHUB_ACTION_REPOSITORY}\"}" \
           "https://actions.enforce.dev/actions/v1/record" >/dev/null 2>&1 || true
-    - uses: chainguard-actions/actions-checkout@279383ec3b8d70f964ffa5a2151ea3d2a5317ec6 # v7
+    - uses: chainguard-actions/actions-checkout@37298d8de412b35988dd165ffae45f45b329d365 # v7
       with:
         repository: egor-tensin/cmake-common
         ref: v8.0.2
         path: cmake
         persist-credentials: false
 
-    - uses: chainguard-actions/actions-setup-python@aa9fa180ff273b8e01a98ec8583cf6985edd88bd # v7
+    - uses: chainguard-actions/actions-setup-python@54626a9f20a67b48c7f84a1362272e3a2e22000c # v7
       with:
         python-version: '>=3.11'
 
@@ -55,7 +55,7 @@ runs:
         ARG_STYLE: ${{ inputs.style }}
         ARG_EXCLUDE: ${{ inputs.exclude }}
       run: |
-        $version = $env:ARG_VERSION
+        $version = $env:VERSION
         $style = $env:ARG_STYLE
 
         $clang_format = 'clang-format'
